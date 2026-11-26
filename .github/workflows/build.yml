@@ -29,6 +29,41 @@ jobs:
           if [ -f words.json ]; then mkdir -p "$ROOT/app/src/main/assets"; cp words.json "$ROOT/app/src/main/assets/words.json"; fi
           test -f "$ROOT/app/src/main/assets/words.json" || (echo "ERROR: words.json is missing" && exit 1)
 
+      - name: Fix missing addPath import in Icons.kt
+        run: |
+          set -e
+          ICONS_FILE="$ROOT/app/src/main/java/com/learnvocabulary/app/ui/Icons.kt"
+          if [ -f "$ICONS_FILE" ]; then
+            python3 - <<'EOF' "$ICONS_FILE"
+          import sys
+
+          path = sys.argv[1]
+          with open(path, "r", encoding="utf-8") as f:
+              content = f.read()
+
+          imp = "import androidx.compose.ui.graphics.vector.addPath"
+          if imp not in content:
+              if "import androidx.compose.ui.graphics.vector.ImageVector" in content:
+                  content = content.replace(
+                      "import androidx.compose.ui.graphics.vector.ImageVector",
+                      f"import androidx.compose.ui.graphics.vector.ImageVector\n{imp}",
+                      1
+                  )
+              elif "import " in content:
+                  content = content.replace("import ", f"{imp}\nimport ", 1)
+              else:
+                  lines = content.splitlines(keepends=True)
+                  if lines and lines[0].startswith("package "):
+                      content = lines[0] + f"\n{imp}\n" + "".join(lines[1:])
+                  else:
+                      content = f"{imp}\n" + content
+
+          with open(path, "w", encoding="utf-8") as f:
+              f.write(content)
+          EOF
+            echo "Checked/fixed addPath import in Icons.kt"
+          fi
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
